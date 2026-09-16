@@ -2,73 +2,81 @@
 
 **Find and join football games near you.**
 
-Footy Hub is a football matchmaking platform built for the Malaysian futsal/football scene. Right now, organizers manage sign-ups manually through Instagram comments, WhatsApp groups, and DMs — which is messy, hard to track, and makes no-shows a constant headache. Footy Hub gives organizers a single place to post games, manage spots and payments, and build a track record — while giving players an easy way to discover and join games near them.
+Footy Hub is a football matchmaking web app built for casual players in Malaysia. Right now, most pickup/futsal games are organized manually through Instagram DMs, WhatsApp groups, and story polls, messy, hard to discover, and easy to lose track of. Footy Hub gives organizers a dedicated place to post games and players a simple way to find and join them.
 
-🔗 **Live demo:** [footy-hub-cyan.vercel.app](https://footy-hub-cyan.vercel.app/)
+🔗 **Live demo:** [footy-hub-cyan.vercel.app](https://footy-hub-cyan.vercel.app)
+
+> ⚠️ **Status: work in progress.** Footy Hub is an ongoing personal project, actively being built and refined. Features may be incomplete, change without notice, or contain bugs.
+
+<!-- Add a screenshot or GIF here, e.g.: -->
+<!-- ![Footy Hub screenshot](./design/screenshot.png) -->
 
 ---
 
-## The Problem
+## The problem
 
-Local organizers already have an audience (usually on Instagram) but no real infrastructure:
-- Sign-ups happen in comments or DMs, with no reliable way to track who's actually confirmed
-- No-shows aren't accounted for, so organizers lose money on empty spots
-- Players have to follow dozens of individual accounts to find games near them
+Organizers currently manage sign-ups through comments, DMs, and story polls, there's no reliable way to track who's actually coming, collect payment, or fill last-minute spots. Players have to follow multiple accounts and dig through stories just to find a game near them.
 
-Footy Hub solves this by giving organizers a lightweight system to post games, track spots filled, and manage the community around each match — without needing to rebuild what already works (players can still coordinate in the app's chat, no forced migration off what they already use).
+Footy Hub solves this with a shared hub: organizers post once, players discover games by day, location, or format, and both sides can track attendance and payment in one place.
 
 ## Features
 
-- 🏠 **Home feed** — browse open games happening near you
-- 📅 **Calendar view** — see games by day, filter by format (5s/7s/11s) or price
-- 🗺️ **Map view** — find games by location and distance
-- 💬 **Chat** — per-game group chat plus direct messages between players
-- 👤 **Profiles** — player stats, turn-up rate, and game history
-- 🏟️ **Organisations** — organizers can create a page for their recurring games/venues
-- 💳 **Wallet** — track payments and fees per game
-- 🔐 **Auth** — secure login and session handling
+- 📅 **Calendar view:** browse upcoming games by day, filtered by format (5s/7s/11s) or price
+- 🗺️ **Map view:** find games near you
+- 💬 **Chat:** group chat per game, plus direct messages between players
+- 👤 **Profiles:** player stats, turn-up rate, and game history
+- 🏟️ **Organizations & venues:** dedicated pages for recurring organizers and venues
+- 🎟️ **Game creation & editing:** organizers can post, edit, and manage their own games
+- ⏳ **Waitlists & turn-up tracking:** automatically manage full games and no-shows
+- 💳 **Wallet:** track payments for games
+- 🖼️ **Avatar uploads:** custom profile pictures
+- 🔐 **Authentication:** secure login for players and organizers
 
-## Tech Stack
+## Tech stack
 
-- **Framework:** [Next.js](https://nextjs.org/) (App Router)
-- **Backend / DB:** [Supabase](https://supabase.com/) (Postgres, Auth, Row-Level Security)
-- **Hosting:** [Vercel](https://vercel.com/)
-- **Styling:** CSS Modules / global styles
+- **Frontend:** Next.js (App Router), React
+- **Backend / DB:** Supabase (Postgres, Auth, Storage)
+- **Deployment:** Vercel (auto-deploys from GitHub on every push)
+- **Styling:** Custom CSS
 
-## Getting Started
+## Getting started locally
 
 ```bash
-# Clone the repo
 git clone https://github.com/aidilsss-coding/FootyHub.git
 cd FootyHub
-
-# Install dependencies
 npm install
+```
 
-# Set up environment variables
-# Create a .env.local file with your Supabase project keys:
-# NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+Create a `.env.local` file with your Supabase credentials:
 
-# Run the dev server
+```
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+Then run the dev server:
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view it locally.
+Visit `http://localhost:3000`.
 
-Database migrations live in `supabase/migrations/` — run them against your own Supabase project to set up the schema.
+## Database
+
+Database schema and migrations live in [`/supabase/migrations`](./supabase/migrations), covering games, waitlists, organizations, direct messages, cancellation policies, and more.
 
 ## Roadmap
 
-- [ ] Payment integration for game fees
-- [ ] Organizer ratings and reviews
-- [ ] Push notifications for game updates
-- [ ] Waitlist auto-promotion when a spot opens up
+- Payment integration for game fees
+- Player ratings and reviews after games
+- Push notifications for game reminders and waitlist promotions
+- Organizer verification badges
 
-## About
+## About this project
 
-Built as a way to learn full-stack web development by solving a real problem in the local football community, and to have a working demo to pitch to organizers directly.
+Built as a way to learn full-stack web development by building something I actually wanted to use, a hub for finding pickup football games in Malaysia, instead of relying on Instagram and WhatsApp.
 
 ---
 
-Made by [aidilsss-coding](https://github.com/aidilsss-coding)
+*Built by [Aidil](https://github.com/aidilsss-coding)*
