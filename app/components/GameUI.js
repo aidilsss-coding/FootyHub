@@ -96,5 +96,11 @@ export function StatusPill({ state, price, position }) {
         Waitlist
       </span>
     );
+  if (state === "started")
+    return (
+      <span className={`${base} border-[1.5px] border-[rgba(26,26,26,.25)] px-2 py-[3px] text-[rgba(26,26,26,.45)]`}>
+        Started
+      </span>
+    );
   return <span className={`${base} bg-[#16A34A] px-[9px] py-1 text-white`}>{CREDITS(price)}</span>;
 }

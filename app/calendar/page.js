@@ -168,6 +168,13 @@ export default function CalendarPage() {
       return setSheetGame(null);
     }
 
+    if (new Date(g.game_date) <= new Date()) {
+      console.log("[join] game has already started, blocking sign-up");
+      setSheetGame(null);
+      say("This game has already started — sign-ups are closed.");
+      return;
+    }
+
     if (g.spots_total - g.spots_filled <= 0) {
       console.log("[join] game is full, joining waitlist instead");
       const { count } = await supabase
@@ -196,6 +203,13 @@ export default function CalendarPage() {
     const g = pendingGame;
     if (!g) {
       console.log("[pay] no pendingGame set, aborting");
+      return;
+    }
+
+    if (new Date(g.game_date) <= new Date()) {
+      console.log("[pay] game has already started, blocking payment");
+      setPendingGame(null);
+      say("This game has already started — sign-ups are closed.");
       return;
     }
 
@@ -430,6 +444,7 @@ export default function CalendarPage() {
               joined: { border: "#128a3a", bg: "#F0FBF3" },
               waiting: { border: "#D97706", bg: "#FFFBEB" },
               full: { border: "#9CA3AF", bg: "#FAFAFA" },
+              started: { border: "#9CA3AF", bg: "#FAFAFA" },
             };
 
             return (
@@ -470,6 +485,8 @@ export default function CalendarPage() {
                       ? "joined"
                       : waitlist[g.id]
                       ? "waiting"
+                      : new Date(g.game_date) <= now
+                      ? "started"
                       : spotsLeft <= 0
                       ? "full"
                       : "open";
@@ -530,7 +547,9 @@ export default function CalendarPage() {
         open={!!sheetGame}
         onClose={() => setSheetGame(null)}
         kicker={
-          sheetGame && sheetGame.spots_total - sheetGame.spots_filled <= 0
+          sheetGame && new Date(sheetGame.game_date) <= new Date()
+            ? "Already started"
+            : sheetGame && sheetGame.spots_total - sheetGame.spots_filled <= 0
             ? "Game full · waitlist"
             : "Open game"
         }
@@ -540,6 +559,7 @@ export default function CalendarPage() {
           const isFull = spotsLeft <= 0;
           const joined = joinedGameIds.includes(sheetGame.id);
           const waiting = waitlist[sheetGame.id];
+          const hasStarted = new Date(sheetGame.game_date) <= new Date();
           return (
             <>
               <div className="px-5">
@@ -555,22 +575,30 @@ export default function CalendarPage() {
                 <Fact label="Fee" value={CREDITS(sheetGame.credits_cost)} />
                 <Fact label="Spots" value={isFull ? "Full" : `${spotsLeft} left`} />
               </div>
-              {isFull && (
+              {isFull && !hasStarted && (
                 <p className="px-5 pt-3 text-xs leading-[1.5] text-[rgba(26,26,26,.65)]">
                   This game is full. You&apos;ll be pushed in automatically if someone drops, and
                   only charged then.
+                </p>
+              )}
+              {hasStarted && !joined && !waiting && (
+                <p className="px-5 pt-3 text-xs leading-[1.5] text-[rgba(26,26,26,.65)]">
+                  This game has already started — sign-ups are closed.
                 </p>
               )}
               <div className="px-4 pb-7 pt-[14px]">
                 <button
                   type="button"
                   onClick={handleSheetAction}
-                  className={`w-full rounded-full bg-[#16A34A] px-[18px] py-[15px] text-[15px] font-extrabold uppercase tracking-[.04em] text-white hover:bg-[#128a3a] active:bg-[#0f7532] ${FOCUS_RING}`}
+                  disabled={hasStarted && !joined && !waiting}
+                  className={`w-full rounded-full bg-[#16A34A] px-[18px] py-[15px] text-[15px] font-extrabold uppercase tracking-[.04em] text-white hover:bg-[#128a3a] active:bg-[#0f7532] disabled:bg-[rgba(26,26,26,.15)] disabled:text-[rgba(26,26,26,.4)] disabled:hover:bg-[rgba(26,26,26,.15)] ${FOCUS_RING}`}
                 >
                   {joined
                     ? `You're in · used ${CREDITS(sheetGame.credits_cost)}`
                     : waiting
                     ? `On the waitlist — #${waiting}`
+                    : hasStarted
+                    ? "Sign-ups closed"
                     : isFull
                     ? "Join waitlist · no credits used yet"
                     : `Use ${CREDITS(sheetGame.credits_cost)} · join`}
