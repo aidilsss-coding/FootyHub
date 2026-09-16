@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabaseClient";
 import { useAuth } from "../../../lib/AuthContext";
+import { markConversationRead } from "../../../lib/chatReads";
 import LoadingState from "../../../components/LoadingState";
 import Icon from "../../../components/Icon";
 import { FOCUS_RING } from "../../../components/GameUI";
 
 export default function DirectMessageRoom({ params }) {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUnreadChatCount } = useAuth();
   const [conversationId, setConversationId] = useState(null);
+  const [isUserOne, setIsUserOne] = useState(null);
   const [otherUsername, setOtherUsername] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -41,7 +43,9 @@ export default function DirectMessageRoom({ params }) {
         return;
       }
 
-      const otherId = conversation.user_one === user.id ? conversation.user_two : conversation.user_one;
+      const amUserOne = conversation.user_one === user.id;
+      setIsUserOne(amUserOne);
+      const otherId = amUserOne ? conversation.user_two : conversation.user_one;
       const { data: profileData } = await supabase.from("profiles").select("username").eq("id", otherId).maybeSingle();
       setOtherUsername(profileData?.username || null);
 
@@ -71,7 +75,14 @@ export default function DirectMessageRoom({ params }) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "direct_messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
+          // Dedupe against the optimistic append from handleSend — this event
+          // still arrives for our own message, just a little later.
+          setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
+          // The room is open right now, so whatever just landed counts as read immediately.
+          if (user && isUserOne !== null && payload.new.sender_id !== user.id) {
+            markConversationRead(conversationId, isUserOne).catch((err) => console.error("Error marking conversation read:", err));
+            refreshUnreadChatCount();
+          }
         }
       )
       .subscribe();
@@ -79,7 +90,15 @@ export default function DirectMessageRoom({ params }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, user, isUserOne, refreshUnreadChatCount]);
+
+  // Opening the room marks everything in it read.
+  useEffect(() => {
+    if (!conversationId || isUserOne === null) return;
+    markConversationRead(conversationId, isUserOne)
+      .then(() => refreshUnreadChatCount())
+      .catch((err) => console.error("Error marking conversation read:", err));
+  }, [conversationId, isUserOne, refreshUnreadChatCount]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,11 +109,14 @@ export default function DirectMessageRoom({ params }) {
     if (!newMessage.trim()) return;
 
     setSending(true);
-    const { error } = await supabase.from("direct_messages").insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content: newMessage.trim(),
-    });
+    // Insert-and-select and append straight away instead of waiting on the
+    // realtime echo — that round trip can lag, so without this the message
+    // you just sent doesn't show up until it arrives (or you refresh).
+    const { data, error } = await supabase
+      .from("direct_messages")
+      .insert({ conversation_id: conversationId, sender_id: user.id, content: newMessage.trim() })
+      .select("id, content, created_at, sender_id")
+      .single();
     setSending(false);
 
     if (error) {
@@ -102,6 +124,7 @@ export default function DirectMessageRoom({ params }) {
       return;
     }
 
+    setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]));
     setNewMessage("");
   }
 

@@ -481,22 +481,25 @@ export default function CalendarPage() {
                     const top = ((start - rangeStart) / 60000) * PX_PER_MIN;
                     const height = Math.max(((end - start) / 60000) * PX_PER_MIN, 44);
                     const spotsLeft = g.spots_total - g.spots_filled;
-                    const state = joinedGameIds.includes(g.id)
+                    const hasStarted = new Date(g.game_date) <= now;
+                    const state = hasStarted
+                      ? "started"
+                      : joinedGameIds.includes(g.id)
                       ? "joined"
                       : waitlist[g.id]
                       ? "waiting"
-                      : new Date(g.game_date) <= now
-                      ? "started"
                       : spotsLeft <= 0
                       ? "full"
                       : "open";
                     const colors = STATE_STYLES[state];
+                    const fillPct = Math.min(100, Math.round((g.spots_filled / g.spots_total) * 100));
+                    const fillColor = spotsLeft <= 0 ? "#9CA3AF" : spotsLeft <= 2 ? "#D97706" : "#16A34A";
                     return (
                       <button
                         type="button"
                         key={g.id}
                         onClick={() => setSheetGame(g)}
-                        className={`zoom-in absolute flex items-center gap-2 overflow-hidden rounded-[14px] border-l-[3px] p-2 text-left shadow-[0_1px_3px_rgba(0,0,0,.08)] transition-colors hover:brightness-[.98] ${FOCUS_RING}`}
+                        className={`zoom-in absolute flex flex-col justify-center gap-1 overflow-hidden rounded-[14px] border-l-[3px] p-2 text-left shadow-[0_1px_3px_rgba(0,0,0,.08)] transition-colors hover:brightness-[.98] ${FOCUS_RING}`}
                         style={{
                           top,
                           height,
@@ -508,22 +511,37 @@ export default function CalendarPage() {
                           animationFillMode: "backwards",
                         }}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1 font-extrabold text-[12px] leading-snug text-[#1A1A1A] truncate">
-                            <Icon name="ball" className="w-3 h-3 shrink-0 text-[#16A34A]" />
-                            {g.venue}
-                          </p>
-                          <p className="text-[10px] text-[rgba(26,26,26,.55)] truncate">
-                            {timeRange(g.game_date, g.end_date)}
-                          </p>
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1 font-extrabold text-[12px] leading-snug text-[#1A1A1A] truncate">
+                              <Icon name="ball" className="w-3 h-3 shrink-0 text-[#16A34A]" />
+                              {g.venue}
+                            </p>
+                            <p className="text-[10px] text-[rgba(26,26,26,.55)] truncate">
+                              {timeRange(g.game_date, g.end_date)}
+                            </p>
+                            {height > 62 && (
+                              <span className="mt-1 block text-[9px] font-extrabold uppercase text-[rgba(26,26,26,.4)]">{g.format}</span>
+                            )}
+                          </div>
                           {height > 62 && (
-                            <span className="mt-1 block text-[9px] font-extrabold uppercase text-[rgba(26,26,26,.4)]">{g.format}</span>
+                            <span className="shrink-0">
+                              <StatusPill state={state} price={g.credits_cost} position={waitlist[g.id]} />
+                            </span>
                           )}
                         </div>
-                        {height > 62 && (
-                          <span className="shrink-0">
-                            <StatusPill state={state} price={g.credits_cost} position={waitlist[g.id]} />
-                          </span>
+                        {height > 78 && !hasStarted && (
+                          <div className="mt-auto">
+                            <div className="h-[5px] w-full overflow-hidden rounded-full bg-[rgba(26,26,26,.08)]">
+                              <div
+                                className="h-full rounded-full transition-[width]"
+                                style={{ width: `${fillPct}%`, background: fillColor }}
+                              />
+                            </div>
+                            <p className="mt-[3px] text-[9px] font-extrabold uppercase tracking-[.04em] text-[rgba(26,26,26,.45)]">
+                              {spotsLeft > 0 ? `${spotsLeft} spot${spotsLeft === 1 ? "" : "s"} left` : "Full"}
+                            </p>
+                          </div>
                         )}
                       </button>
                     );

@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import { fetchUnreadChatCount } from "./chatReads";
 
 const AuthContext = createContext(null);
 
@@ -47,6 +48,18 @@ export function AuthProvider({ children }) {
   const [username, setUsername] = useState("");
   const [credits, setCredits] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  const refreshUnreadChatCount = useCallback((forUser) => {
+    const target = forUser ?? user;
+    if (!target) {
+      setUnreadChatCount(0);
+      return;
+    }
+    fetchUnreadChatCount()
+      .then(setUnreadChatCount)
+      .catch((err) => console.error("Error fetching unread chat count:", err));
+  }, [user]);
 
   useEffect(() => {
     let ensuredFor = null;
@@ -58,6 +71,7 @@ export function AuthProvider({ children }) {
         setUsername("");
         setCredits(0);
         setAvatarUrl(null);
+        setUnreadChatCount(0);
         return;
       }
       if (ensuredFor === nextUser.id) return;
@@ -67,6 +81,7 @@ export function AuthProvider({ children }) {
         setCredits(bal);
         setAvatarUrl(avatar);
       });
+      refreshUnreadChatCount(nextUser);
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -79,10 +94,41 @@ export function AuthProvider({ children }) {
     });
 
     return () => listener.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Poll for new messages (chat has no app-wide realtime wiring yet) and
+  // refresh whenever the tab regains focus, so the badge doesn't go stale.
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => refreshUnreadChatCount(), 20000);
+    function onFocus() {
+      refreshUnreadChatCount();
+    }
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [user, refreshUnreadChatCount]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, username, setUsername, credits, setCredits, avatarUrl, setAvatarUrl }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        username,
+        setUsername,
+        credits,
+        setCredits,
+        avatarUrl,
+        setAvatarUrl,
+        unreadChatCount,
+        refreshUnreadChatCount,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
+import { useAuth } from "../lib/AuthContext";
 
 const leftTabs = [
   { href: "/", icon: "home" },
@@ -14,21 +15,27 @@ const rightTabs = [
   { href: "/profile", icon: "profile" },
 ];
 
-function TabButton({ tab, isActive }) {
+function TabButton({ tab, isActive, badgeCount }) {
   return (
     <Link
       href={tab.href}
-      className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+      className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
         isActive ? "bg-[#16A34A]/10 text-[#16A34A]" : "text-gray-400 hover:text-gray-600"
       }`}
     >
       <Icon name={tab.icon} className="w-5 h-5" />
+      {badgeCount > 0 && (
+        <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-[3px] rounded-full bg-[#DC2626] text-white text-[9px] font-extrabold flex items-center justify-center leading-none">
+          {badgeCount > 9 ? "9+" : badgeCount}
+        </span>
+      )}
     </Link>
   );
 }
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { unreadChatCount } = useAuth();
   const isMapActive = pathname === "/map";
 
   // Hide the nav inside an open chat room (game or DM) — its fixed message
@@ -56,7 +63,12 @@ export default function BottomNav() {
 
         <div className="flex items-center gap-1 bg-white/95 backdrop-blur border border-black/5 rounded-full px-2 py-2 shadow-lg">
           {rightTabs.map((tab) => (
-            <TabButton key={tab.href} tab={tab} isActive={pathname === tab.href} />
+            <TabButton
+              key={tab.href}
+              tab={tab}
+              isActive={pathname === tab.href}
+              badgeCount={tab.href === "/chat" ? unreadChatCount : 0}
+            />
           ))}
         </div>
       </div>

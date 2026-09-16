@@ -6,17 +6,28 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../lib/AuthContext";
 import { getOrCreateConversation } from "../lib/conversations";
+import { fetchUnreadChatBreakdown } from "../lib/chatReads";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import Icon from "../components/Icon";
 import Avatar from "../components/Avatar";
 import { PAGE_WRAP, PageTitle, ROW_CARD, INPUT, FOCUS_RING } from "../components/GameUI";
 
+function UnreadBadge({ count }) {
+  if (!count) return null;
+  return (
+    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#DC2626] text-white text-[11px] font-extrabold flex items-center justify-center leading-none">
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
 export default function ChatListPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, unreadChatCount } = useAuth();
   const [chats, setChats] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [unread, setUnread] = useState({ dm: {}, game: {} });
   const [loading, setLoading] = useState(true);
 
   const [query, setQuery] = useState("");
@@ -89,6 +100,16 @@ export default function ChatListPage() {
       fetchChats();
     }
   }, [user, authLoading]);
+
+  // Refetch the per-row unread breakdown whenever the nav badge's running
+  // total changes (new message arrived, or a room got marked read), so this
+  // list's individual badges stay in sync without their own polling loop.
+  useEffect(() => {
+    if (!user) return;
+    fetchUnreadChatBreakdown()
+      .then(setUnread)
+      .catch((err) => console.error("Error fetching unread breakdown:", err));
+  }, [user, unreadChatCount]);
 
   function handleQueryChange(value) {
     setQuery(value);
@@ -208,6 +229,7 @@ export default function ChatListPage() {
                       <p className="font-extrabold text-[#1A1A1A] truncate">@{c.otherUsername}</p>
                       <p className="text-sm text-[rgba(26,26,26,.55)] truncate">{c.lastMessage || "Say hello!"}</p>
                     </div>
+                    <UnreadBadge count={unread.dm[c.id]} />
                   </Link>
                 ))}
               </div>
@@ -229,6 +251,7 @@ export default function ChatListPage() {
                       <p className="font-extrabold text-[#1A1A1A] truncate">{game.venue}</p>
                       <p className="text-sm text-[rgba(26,26,26,.55)] truncate">{game.format}</p>
                     </div>
+                    <UnreadBadge count={unread.game[game.id]} />
                   </Link>
                 ))}
               </div>

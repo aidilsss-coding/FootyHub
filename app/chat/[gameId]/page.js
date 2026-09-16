@@ -4,13 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../lib/AuthContext";
+import { markGameChatRead } from "../../lib/chatReads";
 import LoadingState from "../../components/LoadingState";
 import Icon from "../../components/Icon";
 import { FOCUS_RING } from "../../components/GameUI";
 
 export default function ChatRoom({ params }) {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUnreadChatCount } = useAuth();
   const [gameId, setGameId] = useState(null);
   const [game, setGame] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -54,7 +55,14 @@ export default function ChatRoom({ params }) {
         { event: "INSERT", schema: "public", table: "messages", filter: `game_id=eq.${gameId}` },
         async (payload) => {
           const { data: profileData } = await supabase.from("profiles").select("username").eq("id", payload.new.user_id).single();
-          setMessages((prev) => [...prev, { ...payload.new, profiles: profileData }]);
+          // Dedupe against the optimistic append from handleSend — this event
+          // still arrives for our own message, just a little later.
+          setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, { ...payload.new, profiles: profileData }]));
+          // The room is open right now, so whatever just landed counts as read immediately.
+          if (user && payload.new.user_id !== user.id) {
+            markGameChatRead(gameId, user.id).catch((err) => console.error("Error marking game chat read:", err));
+            refreshUnreadChatCount();
+          }
         }
       )
       .subscribe();
@@ -62,7 +70,15 @@ export default function ChatRoom({ params }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameId]);
+  }, [gameId, user, refreshUnreadChatCount]);
+
+  // Opening the room marks everything in it read.
+  useEffect(() => {
+    if (!gameId || !user) return;
+    markGameChatRead(gameId, user.id)
+      .then(() => refreshUnreadChatCount())
+      .catch((err) => console.error("Error marking game chat read:", err));
+  }, [gameId, user, refreshUnreadChatCount]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,11 +89,14 @@ export default function ChatRoom({ params }) {
     if (!newMessage.trim()) return;
 
     setSending(true);
-    const { error } = await supabase.from("messages").insert({
-      game_id: gameId,
-      user_id: user.id,
-      content: newMessage.trim(),
-    });
+    // Insert-and-select and append straight away instead of waiting on the
+    // realtime echo — that round trip can lag, so without this the message
+    // you just sent doesn't show up until it arrives (or you refresh).
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({ game_id: gameId, user_id: user.id, content: newMessage.trim() })
+      .select("id, content, created_at, user_id, profiles(username)")
+      .single();
     setSending(false);
 
     if (error) {
@@ -85,6 +104,7 @@ export default function ChatRoom({ params }) {
       return;
     }
 
+    setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]));
     setNewMessage("");
   }
 
